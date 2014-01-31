@@ -258,13 +258,28 @@ def get_filetype(file_name):
     return ''
 
 
-def html_render(path, back, dirs, files, template_file=None):
+def html_render(path, back, dirs, files, template_file=None, dbi_list_file=None):
+    # init dbi_list as empty list
+    dbi_list = []
+    
+    # if the dbi_list_file is specified, read it into dbi_list
+    if dbi_list_file:
+        with open(dbi_list_file) as file:
+            dbi_list = file.read().splitlines()
+    
+    # init replacements as empty dictionary
     replacements = {}
+    
+    # set default replacement values for all dbi_list entries to keep from generating errors if the file isn't in every folder
+    for s in dbi_list:
+        replacements[s] = ''
+    
+    # set default values for all the default dbi filename strings
     replacements['PATH'] = os.path.basename(os.path.realpath(path))
     replacements['DIR-INFO'] = ''
     replacements['HEADER-INFO'] = ''
     
-    adfly_url = os.environ['ADFLYURL'] or ''
+    adfly_url = os.environ['ADFLYURL']
     dropbox_url = None
     public_path = os.environ['DROPBOXPUBLICHOME']
         
@@ -333,7 +348,7 @@ def html_render(path, back, dirs, files, template_file=None):
     
    
 
-def crawl(path, back=None, recursive=False, template_file=None):
+def crawl(path, back=None, recursive=False, template_file=None, dbi_list_file=None):
     if not os.path.exists(path):
         print 'ERROR: Path %s does not exist' % path
         return
@@ -351,14 +366,8 @@ def crawl(path, back=None, recursive=False, template_file=None):
     # get only files
     # filename sort:
     files = [file for file in contents if os.path.isfile(file)]
-    #files.sort(key=str.lower)
+    # files.sort(key=str.lower)
     files = sorted_nicely(files)
-    
-    # date sort (changed to natural sort 9/24/2013):
-    # files = [(file, os.path.getmtime(file)) for file in contents if os.path.isfile(file)]
-	# file_date_tuple_list = [(x,os.path.getmtime(x)) for x in files] <- not sure what this is
-    # files.sort(key=lambda file: file[1])
-    
     files.reverse()
     
     # get only directories
@@ -369,15 +378,15 @@ def crawl(path, back=None, recursive=False, template_file=None):
         dirs = [];
     
     # render directory contents
-    html_render(path, back, dirs, files, template_file)
+    html_render(path, back, dirs, files, template_file, dbi_list_file)
 
     print 'Created index.html for %s' % os.path.realpath(path)
 
     # crawl subdirectories
     for dir in dirs:
-        crawl(dir, path, recursive, template_file)
+        crawl(dir, path, recursive, template_file, dbi_list_file)
     
-
+    
 
 def run():
 
@@ -393,6 +402,8 @@ Script will overwrite any existing index.html file(s)!
                       help='Include subdirectories [default: %default]')
     parser.add_option('-T', '--template', 
                       help='Use HTML file as template')
+    parser.add_option('-D', '--dbilist', 
+                      help='Use the specified file as a list of .dbi file names to be used in replacement')
     
     options, args = parser.parse_args()
     if not args:
@@ -401,7 +412,8 @@ Script will overwrite any existing index.html file(s)!
     
     crawl(path=args[0], 
           recursive=options.recursive, 
-          template_file=options.template)
+          template_file=options.template,
+          dbi_list_file=options.dbilist)
 
 if __name__ == '__main__':
     run()

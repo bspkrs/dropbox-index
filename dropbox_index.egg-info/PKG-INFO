@@ -2,14 +2,14 @@ Metadata-Version: 1.0
 Name: dropbox-index
 Version: 0.5.0
 Summary: Creates index.html for directory contents shared publicly on Dropbox. That way you can easily share whole content of the directory without the need to send separate links for all the shared files
-Home-page: http://code.google.com/p/kosciak-misc/wiki/DropboxIndex
-Author: Wojciech 'KosciaK' Pietrzok
-Author-email: kosciak@kosciak.net
+Home-page: https://github.com/bspkrs/dropbox-index
+Author: Wojciech 'KosciaK' Pietrzok, bspkrs
+Author-email: kosciak@kosciak.net, bspkrs@gmail.com
 License: Apache License v2
 Description: Visit project\s page for details.
 Keywords: dropbox
 Platform: UNKNOWN
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Beta
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
 Classifier: Environment :: Console
