@@ -20,14 +20,15 @@
 # famfamfam's "Silk" icon set - http://www.famfamfam.com/lab/icons/silk/
 #
 
-__author__ = "Wojciech 'KosciaK' Pietrzok (kosciak@kosciak.net), Tommy MacWilliam (macwilliamt@gmail.com)"
-__version__ = "0.4.3"
+__author__ = "Wojciech 'KosciaK' Pietrzok (kosciak@kosciak.net), Tommy MacWilliam (macwilliamt@gmail.com), bspkrs (bspkrs@gmail.com)"
+__version__ = "0.5.0"
 
 import sys
 import os
 import time
 import locale
 import re
+import string
 from optparse import OptionParser
 
 
@@ -39,7 +40,7 @@ DATE_FORMAT = '%Y-%m-%d&nbsp;%H:%M:%S'
 TABLE_HEADERS = {'en_GB': ('Name', 'Size', 'Last Modified'),
                  'pl_PL': ('Nazwa', 'Rozmiar', 'Czas modyfikacji')}
 
-SCRIPT_WWW = 'http://code.google.com/p/kosciak-misc/wiki/DropboxIndex'
+SCRIPT_WWW = 'https://github.com/bspkrs/dropbox-index'
 
 #FILES_URL = 'http://dl.dropboxusercontent.com/u/69843/dropbox-index'
 FILES_URL = 'http://bspk.rs/dropbox-index'
@@ -258,26 +259,26 @@ def get_filetype(file_name):
 
 
 def html_render(path, back, dirs, files, template_file=None):
-    global PATH
-    PATH = os.path.basename(os.path.realpath(path))
+    replacements = {}
+    replacements['PATH'] = os.path.basename(os.path.realpath(path))
+    replacements['DIR-INFO'] = ''
+    replacements['HEADER-INFO'] = ''
     
-    adfly_url = os.environ['ADFLYURL']
+    adfly_url = os.environ['ADFLYURL'] or ''
     dropbox_url = None
     public_path = os.environ['DROPBOXPUBLICHOME']
         
-    use_adfly = True
-    dir_info = None
-    header_info = None
+    use_adfly = False
     for file in files:
-        file_name = os.path.basename(file)
-        if 'dir-info' in file_name:
-            dir_info = open(file, 'r').read()
+        file_name = string.upper(os.path.basename(file))
+        if os.path.splitext(file_name)[1] == '.DBI':
+            replacements[os.path.splitext(file_name)[0]] = open(file, 'r').read()
             continue
-        if 'header-info' in file_name:
-            header_info = open(file, 'r').read()
-            continue
-        if 'no-adfly' in file_name:
+        if 'NO-ADFLY' in file_name:
             use_adfly = False
+            continue
+        if 'USE-ADFLY' in file_name:
+            use_adfly = True
             continue
             
     if use_adfly:
@@ -288,19 +289,15 @@ def html_render(path, back, dirs, files, template_file=None):
     index = open(os.path.join(path, 'index.html'), 'w')
     
     if template_file:
-        global DIR_INFO
-        DIR_INFO = dir_info or ''
-        global HEADER_INFO
-        HEADER_INFO = header_info or ''
         template = open(template_file, 'r').read()
         head_start = template.find('<head>') + 6
         table_start = template.find('%(FILES)s')
-        index.write(template[0:head_start] % globals())
+        index.write(template[0:head_start] % replacements)
         index.write(HTML_STYLE + HTML_JAVASCRIPT)
-        index.write(template[head_start:table_start] % globals())
+        index.write(template[head_start:table_start] % replacements)
     else:
-        index.write(HTML_START % globals())
-        index.write(HTML_HEADER % PATH)
+        index.write(HTML_START % replacements)
+        index.write(HTML_HEADER % replacements['PATH'])
     
     index.write(HTML_TABLE_START % table_headers())
     
@@ -316,7 +313,7 @@ def html_render(path, back, dirs, files, template_file=None):
     for file in files:
         file_base_name = os.path.basename(file)
         file_name = dropbox_url + os.path.relpath(file, public_path).replace('\\','/')
-        if 'dir-info' in file_name or 'no-adfly' in file_name or 'header-info' in file_name:
+        if string.lower(os.path.splitext(file_name)[1]) == '.dbi' or 'no-adfly' in string.lower(file_name) or 'use-adfly' in string.lower(file_name):
             continue
         file_type = get_filetype(file_name)
         file_size = get_size(file)
@@ -329,18 +326,16 @@ def html_render(path, back, dirs, files, template_file=None):
     index.write(HTML_TABLE_END % (now, SCRIPT_WWW, __version__))
     
     if template_file:
-        DIR_INFO = dir_info or ''
-        index.write(template[table_start+9:] % globals())
-        DIR_INFO = None
+        index.write(template[table_start+9:] % replacements)
     else:
-        index.write(HTML_DIR_INFO % {'DIR_INFO': dir_info or ''})
+        index.write(HTML_DIR_INFO % replacements)
         index.write(HTML_END)
     
    
 
 def crawl(path, back=None, recursive=False, template_file=None):
     if not os.path.exists(path):
-        print 'ERROR: Path %s does not exists' % path
+        print 'ERROR: Path %s does not exist' % path
         return
     
     if not os.path.isdir(path):
