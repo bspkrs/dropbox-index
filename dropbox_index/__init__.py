@@ -92,7 +92,7 @@ HTML_STYLE = '''
         a { text-decoration: none; color: #00A; }
         a:hover { text-decoration: underline; }
         #dropbox-index-header { padding: 0; margin: 0.5em auto 0.5em 1em; }
-        table#dropbox-index-list { text-align: center; margin: 0 auto 0 1.5em; border-collapse: collapse; }
+        table#dropbox-index-list { text-align: center; margin: 0 auto 0 0; border-collapse: collapse; }
         #dropbox-index-list thead { border-bottom: 1px solid #555; }
         #dropbox-index-list th:hover { cursor: pointer; cursor: hand; background-color: #EEE; }
         #direction { border: 0; vertical-align: bottom; margin: 0 0.5em;}
@@ -199,7 +199,7 @@ HTML_START = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "
 '''
 HTML_HEADER = '<h1 id="dropbox-index-header">%s</h1>'
 HTML_TABLE_START = '''
-<table id="dropbox-index-list">
+<table id="dropbox-index-list" class="table table-striped table-bordered table-hover">
     <thead>
         <tr>
             <th class="name">%s</th><th class="size">%s</th><th class="date">%s</th>
@@ -207,7 +207,7 @@ HTML_TABLE_START = '''
     </thead>
     <tbody>
 '''
-HTML_BACK = '<tr><td class="name back"><a href="../index.html">..</a></td><td class="size">&nbsp;</td><td class="date">&nbsp;</td></tr>'
+HTML_BACK = '<tr><td class="name back"><a href="../index.html">%s</a></td><td class="size">&nbsp;</td><td class="date">&nbsp;</td></tr>'
 HTML_DIR = '<tr><td class="name dir"><a href="%(file_name)s/index.html">%(file_name)s</a></td><td class="size">&nbsp;</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td></tr>\n'
 HTML_FILE = '<tr><td class="name file%(file_type)s"><a href="%(file_name)s">%(file_base_name)s</a></td><td class="size" sort="%(file_size_sort)s">%(file_size)s</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td></tr>\n'
 HTML_TABLE_END = '''
@@ -258,7 +258,15 @@ def get_filetype(file_name):
     return ''
 
 
-def html_render(path, back, dirs, files, template_file=None, dbi_list_file=None):
+
+def get_html_title(index_file):
+    index = open(os.path.abspath(index_file.name), 'r').read()
+    title_start = index.find('<title>') + 7
+    title_end = index.find('</title>')
+    return index[title_start:title_end]
+
+
+def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list_file=None):
     # init dbi_list as empty list
     dbi_list = []
     
@@ -279,7 +287,6 @@ def html_render(path, back, dirs, files, template_file=None, dbi_list_file=None)
     replacements['DIR-INFO'] = ''
     replacements['HEADER-INFO'] = ''
     
-    adfly_url = os.environ['ADFLYURL']
     dropbox_url = None
     public_path = os.environ['DROPBOXPUBLICHOME']
         
@@ -289,15 +296,12 @@ def html_render(path, back, dirs, files, template_file=None, dbi_list_file=None)
         if os.path.splitext(file_name)[1] == '.DBI':
             replacements[os.path.splitext(file_name)[0]] = open(file, 'r').read()
             continue
-        if 'NO-ADFLY' in file_name:
-            use_adfly = False
-            continue
         if 'USE-ADFLY' in file_name:
             use_adfly = True
             continue
             
     if use_adfly:
-        dropbox_url = 'http://' + adfly_url + os.environ['DROPBOXPUBLICURL']
+        dropbox_url = 'http://' + os.environ['ADFLYURL'] + os.environ['DROPBOXPUBLICURL']
     else:
         dropbox_url = 'http://' + os.environ['DROPBOXPUBLICURL']
     
@@ -317,7 +321,10 @@ def html_render(path, back, dirs, files, template_file=None, dbi_list_file=None)
     index.write(HTML_TABLE_START % table_headers())
     
     if back:
-        index.write(HTML_BACK)
+        if back_text:
+            index.write(HTML_BACK % back_text)
+        else:
+            index.write(HTML_BACK % '..')
     
     for file in dirs:
         file_name = os.path.basename(file)
@@ -345,10 +352,14 @@ def html_render(path, back, dirs, files, template_file=None, dbi_list_file=None)
     else:
         index.write(HTML_DIR_INFO % replacements)
         index.write(HTML_END)
-    
+
+    index.close()
+
+    return index
    
 
-def crawl(path, back=None, recursive=False, template_file=None, dbi_list_file=None):
+
+def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, template_file=None, dbi_list_file=None):
     if not os.path.exists(path):
         print 'ERROR: Path %s does not exist' % path
         return
@@ -356,6 +367,8 @@ def crawl(path, back=None, recursive=False, template_file=None, dbi_list_file=No
     if not os.path.isdir(path):
         print 'ERROR: Path %s is not a directory' % path
         return
+
+    # print 'back_text: ' + back_text
     
     # get contents of the directory
     contents = [os.path.join(path, file) for file in os.listdir(path) if not file.endswith('index.html')]
@@ -378,13 +391,21 @@ def crawl(path, back=None, recursive=False, template_file=None, dbi_list_file=No
         dirs = [];
     
     # render directory contents
-    html_render(path, back, dirs, files, template_file, dbi_list_file)
+    current_index = html_render(path, back, back_text_repl, dirs, files, template_file, dbi_list_file)
 
     print 'Created index.html for %s' % os.path.realpath(path)
 
+    if(back_text):
+        current_title = get_html_title(current_index)
+        # print 'current_title: ' + current_title
+        back_text_repl = back_text % current_title
+        # print 'back_text_repl: ' + back_text_repl
+    else:
+        back_text_repl = None
+
     # crawl subdirectories
     for dir in dirs:
-        crawl(dir, path, recursive, template_file, dbi_list_file)
+        crawl(dir, path, back_text, back_text_repl, recursive, template_file, dbi_list_file)
     
     
 
@@ -400,6 +421,8 @@ Script will overwrite any existing index.html file(s)!
     parser.add_option('-R', '--recursive', 
                       action='store_true', default=False,
                       help='Include subdirectories [default: %default]')
+    parser.add_option('-B', '--backtext', 
+                      help='Use the specified string for the "up one directory" text. Ignored if -R is not specified.')
     parser.add_option('-T', '--template', 
                       help='Use HTML file as template')
     parser.add_option('-D', '--dbilist', 
@@ -411,6 +434,7 @@ Script will overwrite any existing index.html file(s)!
         sys.exit()
     
     crawl(path=args[0], 
+          back_text=options.backtext,
           recursive=options.recursive, 
           template_file=options.template,
           dbi_list_file=options.dbilist)
