@@ -199,7 +199,7 @@ HTML_START = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "
 '''
 HTML_HEADER = '<h1 id="dropbox-index-header">%s</h1>'
 HTML_TABLE_START = '''
-<table id="dropbox-index-list" class="table table-striped table-bordered table-hover">
+<table id="dropbox-index-list" class="table table-striped">
     <thead>
         <tr>
             <th class="name">%s</th><th class="size">%s</th><th class="date">%s</th>
