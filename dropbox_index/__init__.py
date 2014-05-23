@@ -207,9 +207,9 @@ HTML_TABLE_START = '''
     </thead>
     <tbody>
 '''
-HTML_BACK = '<tr><td class="name back"><div><a href="../index.html">%(back_text)s</a></div></td><td class="size">&nbsp;</td><td class="date">&nbsp;</td>%(file_links)s</tr>'
-HTML_DIR = '<tr><td class="name dir"><div><a href="%(file_name)s/index.html">%(file_name)s</a></div></td><td class="size">&nbsp;</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td>%(file_links)s</tr>\n'
-HTML_FILE = '<tr><td class="name file%(file_type)s"><div>%(file_base_name)s</div></td><td class="size" sort="%(file_size_sort)s">%(file_size)s</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td>%(file_links)s</tr>\n'
+HTML_BACK = '<tr><td class="name back"><div><small><a href="../index.html">%(back_text)s</a></small></div></td><td class="size">&nbsp;</td><td class="date">&nbsp;</td>%(file_links)s</tr>'
+HTML_DIR = '<tr><td class="name dir"><div><small><a href="%(file_name)s/index.html">%(file_name)s</a></small></div></td><td class="size">&nbsp;</td><td class="date" sort="%(file_time_sort)s"><small>%(file_time)s</small></td>%(file_links)s</tr>\n'
+HTML_FILE = '<tr><td class="name file%(file_type)s"><div><small>%(file_base_name)s</small></div></td><td class="size" sort="%(file_size_sort)s"><small>%(file_size)s</small></td><td class="date" sort="%(file_time_sort)s"><small>%(file_time)s</small></td>%(file_links)s</tr>\n'
 HTML_TABLE_END = '''
     </tbody>
 </table>
