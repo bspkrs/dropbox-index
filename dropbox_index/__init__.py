@@ -21,7 +21,7 @@
 #
 
 __author__ = "Wojciech 'KosciaK' Pietrzok (kosciak@kosciak.net), Tommy MacWilliam (macwilliamt@gmail.com), bspkrs (bspkrs@gmail.com)"
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 import sys
 import os
@@ -88,7 +88,6 @@ FILE_TYPES = {
 
 HTML_STYLE = '''
     <style>
-        body { font-family: Verdana, sans-serif; font-size: 12px;}
         a { text-decoration: none; color: #00A; }
         a:hover { text-decoration: underline; }
         #dropbox-index-header { padding: 0; margin: 0.5em auto 0.5em 1em; }
@@ -100,14 +99,15 @@ HTML_STYLE = '''
         #dropbox-index-list tr, th { line-height: 1.7em; min-height: 25px; }
         #dropbox-index-list tbody tr:hover { background-color: #EEE; }
         .name { text-align: left; width: 35em; }
-        .name a, thead .name { padding-left: 22px; }
+        .name div, thead .name { padding-left: 18px; }
         .name a { display: block; }
         .size { text-align: right; width: 7em; padding-right: 1em;}
         .date { text-align: right; width: 15em; padding-right: 1em;}
+        .dl { padding-left: 0em; padding-right: 0em;}
         #dropbox-index-dir-info { margin: 1em auto 0.5em 2em; }
         #dropbox-index-footer { margin: 1em auto 0.5em 2em; font-size: smaller;}
         /* Icons */
-        .dir, .back, .file { background-repeat: no-repeat; background-position: 2px 4px;}
+        .dir, .back, .file { background-repeat: no-repeat; background-position: 2px 9px;}
         .back { background-image: url('%s'); }
         .dir { background-image: url('%s'); }
         .file { background-image: url('%s'); }
@@ -199,17 +199,17 @@ HTML_START = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "
 '''
 HTML_HEADER = '<h1 id="dropbox-index-header">%s</h1>'
 HTML_TABLE_START = '''
-<table id="dropbox-index-list" class="table-striped">
+<table id="dropbox-index-list" class="table table-striped">
     <thead>
         <tr>
-            <th class="name">%s</th><th class="size">%s</th><th class="date">%s</th>
+            <th class="name">%s</th><th class="size">%s</th><th class="date">%s</th><th class="dl">&nbsp;</th><th class="dl">&nbsp;</th>
         </tr>
     </thead>
     <tbody>
 '''
-HTML_BACK = '<tr><td class="name back"><a href="../index.html">%s</a></td><td class="size">&nbsp;</td><td class="date">&nbsp;</td></tr>'
-HTML_DIR = '<tr><td class="name dir"><a href="%(file_name)s/index.html">%(file_name)s</a></td><td class="size">&nbsp;</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td></tr>\n'
-HTML_FILE = '<tr><td class="name file%(file_type)s"><a href="%(file_name)s">%(file_base_name)s</a></td><td class="size" sort="%(file_size_sort)s">%(file_size)s</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td></tr>\n'
+HTML_BACK = '<tr><td class="name back"><div><a href="../index.html">%(back_text)s</a></div></td><td class="size">&nbsp;</td><td class="date">&nbsp;</td>%(file_links)s</tr>'
+HTML_DIR = '<tr><td class="name dir"><div><a href="%(file_name)s/index.html">%(file_name)s</a></div></td><td class="size">&nbsp;</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td>%(file_links)s</tr>\n'
+HTML_FILE = '<tr><td class="name file%(file_type)s"><div>%(file_base_name)s</div></td><td class="size" sort="%(file_size_sort)s">%(file_size)s</td><td class="date" sort="%(file_time_sort)s">%(file_time)s</td>%(file_links)s</tr>\n'
 HTML_TABLE_END = '''
     </tbody>
 </table>
@@ -288,6 +288,8 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
     replacements['HEADER-INFO'] = ''
     
     dropbox_url = None
+    dl_url = 'http://dl.bspk.rs/download?u=http://' + os.environ['DROPBOXPUBLICURL']
+    file_links_base = None
     public_path = os.environ['DROPBOXPUBLICHOME']
         
     use_adfly = False
@@ -302,8 +304,10 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
             
     if use_adfly:
         dropbox_url = 'http://' + os.environ['ADFLYURL'] + os.environ['DROPBOXPUBLICURL']
+        file_links_base = '<td class="dl">%(dl_file_name)s</td><td class="dl">%(adf_file_name)s</td>'
     else:
         dropbox_url = 'http://' + os.environ['DROPBOXPUBLICURL']
+        file_links_base = '<td class="dl" colspan="2">%(dl_file_name)s</td>'
     
     index = open(os.path.join(path, 'index.html'), 'w')
     
@@ -319,12 +323,17 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
         index.write(HTML_HEADER % replacements['PATH'])
     
     index.write(HTML_TABLE_START % table_headers())
+    adf_file_name = '&nbsp;'
+    dl_file_name = '&nbsp;'
+
+    file_links = file_links_base % locals()
     
     if back:
         if back_text:
-            index.write(HTML_BACK % back_text)
+            index.write(HTML_BACK % locals())
         else:
-            index.write(HTML_BACK % '..')
+            back_text = '..'
+            index.write(HTML_BACK % locals())
     
     for file in dirs:
         file_name = os.path.basename(file)
@@ -334,14 +343,16 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
     
     for file in files:
         file_base_name = os.path.basename(file)
-        file_name = dropbox_url + os.path.relpath(file, public_path).replace('\\','/')
-        if string.lower(os.path.splitext(file_name)[1]) == '.dbi' or 'no-adfly' in string.lower(file_name) or 'use-adfly' in string.lower(file_name):
+        adf_file_name = '<a class="btn btn-xs btn-success" href="' + dropbox_url + os.path.relpath(file, public_path).replace('\\','/') + '">adf.ly</a>'
+        dl_file_name = '<a class="btn btn-xs btn-primary" href="' + dl_url + os.path.relpath(file, public_path).replace('\\', '/') + '">dl.bspk.rs</a>'
+        if string.lower(os.path.splitext(file_base_name)[1]) == '.dbi' or 'no-adfly' in string.lower(file_base_name) or 'use-adfly' in string.lower(file_base_name):
             continue
-        file_type = get_filetype(file_name)
+        file_type = get_filetype(file_base_name)
         file_size = get_size(file)
         file_size_sort = os.path.getsize(file)
         file_time = time.strftime(DATE_FORMAT, time.localtime(os.path.getmtime(file)))
         file_time_sort = os.path.getmtime(file)
+        file_links = file_links_base % locals()
         index.write(HTML_FILE % locals())
     
     now = time.strftime(DATE_FORMAT, time.localtime())

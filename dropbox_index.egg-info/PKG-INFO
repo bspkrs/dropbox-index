@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: dropbox-index
-Version: 0.5.0
+Version: 0.5.1
 Summary: Creates index.html for directory contents shared publicly on Dropbox. That way you can easily share whole content of the directory without the need to send separate links for all the shared files
 Home-page: https://github.com/bspkrs/dropbox-index
 Author: Wojciech 'KosciaK' Pietrzok, bspkrs
