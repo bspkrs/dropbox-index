@@ -21,7 +21,7 @@
 #
 
 __author__ = "Wojciech 'KosciaK' Pietrzok (kosciak@kosciak.net), Tommy MacWilliam (macwilliamt@gmail.com), bspkrs (bspkrs@gmail.com)"
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 import sys
 import os
@@ -266,13 +266,52 @@ def get_html_title(index_file):
     return index[title_start:title_end]
 
 
-def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list_file=None):
+def html_render(path, back, back_text, dirs, files, force=False, template_file=None, dbi_list_file=None):
     # init dbi_list as empty list
     dbi_list = []
-    
+
+    # only continue if something has actually changed (including the template file)
+    something_changed = force
+    index_file = os.path.join(path, 'index.html')
+    prev_contents_file = os.path.join(path, 'dbi_contents.txt')
+    prev_contents_list = []
+    if not something_changed and os.path.isfile(prev_contents_file):
+        prev_contents_list = open(prev_contents_file, 'r').read().splitlines()
+    if not something_changed and os.path.isfile(index_file):
+        index_time = os.path.getmtime(index_file)
+        if template_file:
+            something_changed = os.path.getmtime(template_file) > index_time
+        if not something_changed:
+            for file in files:
+                if os.path.getmtime(file) > index_time or os.path.abspath(file) not in prev_contents_list:
+                    something_changed = True
+                    break
+            if not something_changed:
+                for dir in dirs:
+                    if os.path.getmtime(dir) > index_time or os.path.abspath(dir) not in prev_contents_list:
+                        something_changed = True
+                        break
+            if not something_changed and len(prev_contents_list) > 0:
+                start = 0
+                if back and back_text:
+                    if prev_contents_list[0] != back_text:
+                        something_changed = True
+                    start = 1
+                if not something_changed and len(prev_contents_list) > start:
+                    for file in prev_contents_list[start:]:
+                        if not os.path.exists(file):
+                            something_changed = True
+    else:
+        something_changed = True
+
+    if not something_changed:
+        index = open(index_file, 'r')
+        index.close()
+        return index
+
     # if the dbi_list_file is specified, read it into dbi_list
     if dbi_list_file:
-        with open(dbi_list_file) as file:
+        with open(dbi_list_file, 'r') as file:
             dbi_list = file.read().splitlines()
     
     # init replacements as empty dictionary
@@ -308,8 +347,11 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
     else:
         dropbox_url = 'http://' + os.environ['DROPBOXPUBLICURL']
         file_links_base = '<td class="dl" colspan="2">%(dl_file_name)s</td>'
-    
-    index = open(os.path.join(path, 'index.html'), 'w')
+
+    index = open(index_file, 'w')
+    prev_contents = open(prev_contents_file, 'w')
+    template = None
+    table_start = None
     
     if template_file:
         template = open(template_file, 'r').read()
@@ -323,6 +365,8 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
         index.write(HTML_HEADER % replacements['PATH'])
     
     index.write(HTML_TABLE_START % table_headers())
+    if back and back_text:
+        prev_contents.write(back_text + '\n')
     adf_file_name = '&nbsp;'
     dl_file_name = '&nbsp;'
 
@@ -336,12 +380,14 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
             index.write(HTML_BACK % locals())
     
     for file in dirs:
+        prev_contents.write(os.path.abspath(file) + '\n')
         file_name = os.path.basename(file)
         file_time = time.strftime(DATE_FORMAT, time.localtime(os.path.getmtime(file)))
         file_time_sort = os.path.getmtime(file)
         index.write(HTML_DIR % locals())
-    
+
     for file in files:
+        prev_contents.write(os.path.abspath(file) + '\n')
         file_base_name = os.path.basename(file)
         adf_file_name = '<a class="btn btn-xs btn-success" href="' + dropbox_url + os.path.relpath(file, public_path).replace('\\','/') + '">adf.ly</a>'
         dl_file_name = '<a class="btn btn-xs btn-primary" href="' + dl_url + os.path.relpath(file, public_path).replace('\\', '/') + '">dl.bspk.rs</a>'
@@ -364,13 +410,13 @@ def html_render(path, back, back_text, dirs, files, template_file=None, dbi_list
         index.write(HTML_DIR_INFO % replacements)
         index.write(HTML_END)
 
+    prev_contents.close()
     index.close()
 
     return index
    
 
-
-def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, template_file=None, dbi_list_file=None):
+def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, force=False, template_file=None, dbi_list_file=None):
     if not os.path.exists(path):
         print 'ERROR: Path %s does not exist' % path
         return
@@ -382,7 +428,7 @@ def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, t
     # print 'back_text: ' + back_text
     
     # get contents of the directory
-    contents = [os.path.join(path, file) for file in os.listdir(path) if not file.endswith('index.html')]
+    contents = [os.path.join(path, file) for file in os.listdir(path) if not file.endswith('index.html') and not file.endswith('dbi_contents.txt')]
     # remove hidden files
     # TODO: identify Windows hidden files
     contents = [file for file in contents if not os.path.basename(file).startswith('.')]
@@ -399,12 +445,18 @@ def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, t
         dirs = [file for file in contents if os.path.isdir(file)]
         dirs.sort(key=str.lower)
     else:
-        dirs = [];
-    
-    # render directory contents
-    current_index = html_render(path, back, back_text_repl, dirs, files, template_file, dbi_list_file)
+        dirs = []
 
-    print 'Created index.html for %s' % os.path.realpath(path)
+    prev_mod_time = os.path.getmtime(os.path.join(path, 'index.html'))
+
+    # render directory contents
+    current_index = html_render(path, back, back_text_repl, dirs, files, force, template_file, dbi_list_file)
+    new_mod_time = os.path.getmtime(current_index)
+
+    if new_mod_time > prev_mod_time:
+        print 'Created index.html for %s' % os.path.realpath(path)
+    else:
+        print 'index.html up to date for %s' % os.path.realpath(path)
 
     if(back_text):
         current_title = get_html_title(current_index)
@@ -418,7 +470,6 @@ def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, t
     for dir in dirs:
         crawl(dir, path, back_text, back_text_repl, recursive, template_file, dbi_list_file)
     
-    
 
 def run():
 
@@ -429,6 +480,9 @@ Script will overwrite any existing index.html file(s)!
     parser = OptionParser(version='%prog ' + __version__,
                           usage="%prog [options] DIRECTORY",
                           epilog=epilog)
+    parser.add_option('-F', '--force-refresh',
+                      action='store_true', default=False,
+                      help='Generate new index.html even if nothing changed [default: %default]')
     parser.add_option('-R', '--recursive', 
                       action='store_true', default=False,
                       help='Include subdirectories [default: %default]')
@@ -446,7 +500,8 @@ Script will overwrite any existing index.html file(s)!
     
     crawl(path=args[0], 
           back_text=options.backtext,
-          recursive=options.recursive, 
+          recursive=options.recursive,
+          force=options.force_refresh,
           template_file=options.template,
           dbi_list_file=options.dbilist)
 
