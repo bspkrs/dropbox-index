@@ -447,13 +447,14 @@ def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, f
     else:
         dirs = []
 
-    prev_mod_time = os.path.getmtime(os.path.join(path, 'index.html'))
+    prev_mod_time = 0
+    if os.path.isfile(os.path.join(path, 'index.html')):
+        prev_mod_time = os.path.getmtime(os.path.join(path, 'index.html'))
 
     # render directory contents
     current_index = html_render(path, back, back_text_repl, dirs, files, force, template_file, dbi_list_file)
-    new_mod_time = os.path.getmtime(current_index)
 
-    if new_mod_time > prev_mod_time:
+    if os.path.getmtime(os.path.join(path, 'index.html')) > prev_mod_time:
         print 'Created index.html for %s' % os.path.realpath(path)
     else:
         print 'index.html up to date for %s' % os.path.realpath(path)
@@ -468,7 +469,7 @@ def crawl(path, back=None, back_text=None, back_text_repl='', recursive=False, f
 
     # crawl subdirectories
     for dir in dirs:
-        crawl(dir, path, back_text, back_text_repl, recursive, template_file, dbi_list_file)
+        crawl(dir, path, back_text, back_text_repl, recursive, force, template_file, dbi_list_file)
     
 
 def run():
